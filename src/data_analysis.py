@@ -8,6 +8,7 @@ if hauptordner not in sys.path:
 
 import numpy as np
 from abstract_classes.data_analysis_base import AbstractDataAnalysis
+from signal_processing import moving_average
 
 class DataAnalysis(AbstractDataAnalysis):
 
@@ -63,9 +64,9 @@ class DataAnalysis(AbstractDataAnalysis):
         dt = self.dt
         return np.divide(ds, dt, out=np.zeros_like(ds), where=dt > 0)
 
-    def get_accelerations(self) -> np.ndarray:
+    def get_accelerations(self, speeds_input: np.ndarray) -> np.ndarray:
         """a = dv / dt (ohne Warnungen bei dt == 0)"""
-        v = self.speeds
+        v = speeds_input
         dt = self.dt
         dv = np.diff(v)
         dv_vollstaendig = np.insert(dv, 0, 0.0)
@@ -113,12 +114,19 @@ class DataAnalysis(AbstractDataAnalysis):
         # 1. Daten über NumPy einlesen
         self.load_data()
         
-        # 2. Kinematik berechnen und temporär im Objekt merken
+        # 2. Kinematik berechnen
         self.dt = self.get_dt()
         self.distances = self.get_distances()
-        self.speeds = self.get_speeds()
-        self.accelerations = self.get_accelerations()
-        self.slopes = self.get_slopes()
+        
+        # Rohwerte berechnen
+        raw_speeds = self.get_speeds()
+        raw_accelerations = self.get_accelerations(raw_speeds)
+        raw_slopes = self.get_slopes()
+        
+        # Glätten mit der importierten Funktion
+        self.speeds = moving_average(raw_speeds, window_size=15)
+        self.accelerations = moving_average(raw_accelerations, window_size=15)
+        self.slopes = moving_average(raw_slopes, window_size=15)
         
         # 3. Kräfte berechnen
         self.F_gravity = self.get_force_gravity()
@@ -131,8 +139,6 @@ class DataAnalysis(AbstractDataAnalysis):
         # 4. Elektrotechnik berechnen
         self.torque = self.get_torque()
         self.I_motor = self.get_motor_current()
-        
-        return self
 
 
 
