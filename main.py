@@ -1,6 +1,10 @@
 from src.data_analysis import DataAnalysis
+from src.battery_lipo import LiPoBattery
+from src.battery_nmc import NMCBattery
+
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 analyzer = DataAnalysis("final_project_input_data.csv")
 
@@ -62,6 +66,67 @@ plt.tight_layout()
 
 
 
+# ==========================================
+# --- NEU: BATTERIE-SIMULATION ---
+# ==========================================
+
+# 1. Benötigte Ladung aus den analysierten Daten ermitteln
+dt_s = analyzer.dt             # Zeitdifferenzen in Sekunden
+strom_a = analyzer.I_motor     # Berechneter Motorstrom in Ampere
+
+# Ladung Q (As) = Summe über alle Zeitschritte (Strom * Zeitdifferenz)
+gesamt_ladung_as = np.sum(strom_a * dt_s)
+gesamt_ladung_ah = gesamt_ladung_as / 3600.0  # Umrechnung in Amperestunden (Ah)
+
+# Dimensionierung: Wir wollen, dass die Batterie am Ende noch 10 % Restladung (SoC = 10%) hat
+KAPAZITAET_AH = gesamt_ladung_ah / 0.9
+PARALLEL_CELLS = 1
+
+# Batterien für die Simulation instanziieren
+lipo = LiPoBattery(capacity_nom_Ah=KAPAZITAET_AH, parallel_cells=PARALLEL_CELLS, initial_soc=1.0)
+nmc = NMCBattery(capacity_nom_Ah=KAPAZITAET_AH, parallel_cells=PARALLEL_CELLS, initial_soc=1.0)
+
+# Listen zum Aufzeichnen des Ladezustands (State of Charge in %)
+soc_lipo_verlauf = []
+soc_nmc_verlauf = []
+
+# Simulationsschleife über die gesamte Fahrt
+for i in range(len(dt_s)):
+    # Aktuellen SoC sichern (in Prozent)
+    soc_lipo_verlauf.append(lipo.get_soc() * 100.0)
+    soc_nmc_verlauf.append(nmc.get_soc() * 100.0)
+    
+    # Strom über die Zeitdauer auf die Batterie anwenden (aktualisiert SoC intern)
+    lipo.apply_current(current=strom_a[i], duration=dt_s[i])
+    nmc.apply_current(current=strom_a[i], duration=dt_s[i])
+
+
+# ==========================================
+# --- NEU: DIAGRAMM 3: Batterieladung ---
+# ==========================================
+fig3, (ax3_lipo, ax3_nmc) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+ax3_nmc.set_xticks(np.arange(0, 301, 20))
+
+# Subplot 1: LiPo Ladezustand
+ax3_lipo.plot(time_minutes, soc_lipo_verlauf, label='LiPo Ladezustand (SoC)', color='#1f77b4', linewidth=2)
+ax3_lipo.set_ylabel('LiPo SoC / %')
+ax3_lipo.set_title('Ladezustand (SoC) über die Fahrzeit')
+ax3_lipo.set_ylim(-5, 105)
+ax3_lipo.grid(True, linestyle='--', alpha=0.6)
+ax3_lipo.legend(loc='upper right')
+
+# Subplot 2: NMC Ladezustand
+ax3_nmc.plot(time_minutes, soc_nmc_verlauf, label='NMC Ladezustand (SoC)', color='#ff7f0e', linewidth=2, linestyle='--')
+ax3_nmc.set_xlabel('t / min')
+ax3_nmc.set_ylabel('NMC SoC / %')
+ax3_nmc.set_ylim(-5, 105)
+ax3_nmc.grid(True, linestyle='--', alpha=0.6)
+ax3_nmc.legend(loc='upper right')
+
+plt.tight_layout()
+
+
+
 
 # Diagramme anzeigen
 plt.show()
@@ -98,4 +163,7 @@ print(f"{'Maximalleistung Motor:':<29} {max_power:.0f} W")
 print(f"{'Höhenmeter (Anstieg):':<29} {hm_up:.0f} hm")
 print(f"{'Höhenmeter (Abstieg):':<29} {hm_down:.0f} hm")
 
+print("-" * 40)
+print(f"{'Berechneter Verbrauch:':<29} {gesamt_ladung_ah:.2f} Ah")
+print(f"{'Ausgelegte Kapazität (10% SoC):':<29} {KAPAZITAET_AH:.2f} Ah")
 print("="*40 + "\n")
