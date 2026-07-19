@@ -8,7 +8,7 @@ if hauptordner not in sys.path:
 
 import numpy as np
 from abstract_classes.data_analysis_base import AbstractDataAnalysis
-from signal_processing import moving_average
+from src.signal_processing import moving_average
 
 class DataAnalysis(AbstractDataAnalysis):
 
