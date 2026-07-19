@@ -30,6 +30,7 @@ class DataAnalysis(AbstractDataAnalysis):
         assert 'lon' in available_columns, "Spalte lon fehlt!"
         assert 'ele' in available_columns, "Spalte ele fehlt!"
         assert 'time' in available_columns, "Spalte time fehlt!"
+        assert 'temperature' in available_columns, "Spalte temperature fehlt!"
 
     def get_dt(self) -> np.ndarray:
         """Berechnet die vergangenen Sekunden von Punkt zu Punkt."""
@@ -97,7 +98,8 @@ class DataAnalysis(AbstractDataAnalysis):
     def get_force_drag(self) -> np.ndarray:
         """F_drag = 0.5 * rho * cwA * v²"""
         logging.debug("Berechne Luftwiderstandskraft (F_drag) aus Luftdichte, Widerstandsbeiwert und Geschwindigkeit")
-        return 0.5 * self.RHO_AIR * self.CW_A * (self.speeds ** 2)
+        self.rho_air = self.get_air_density() # hole die Luftdichte aus der erweiterten Funktion
+        return 0.5 * self.rho_air * self.CW_A * (self.speeds ** 2)
 
     def get_force_acceleration(self) -> np.ndarray:
         """F_acceleration = m * a"""
@@ -118,6 +120,39 @@ class DataAnalysis(AbstractDataAnalysis):
         """Motorstrom: I = T / Km"""
         logging.debug("Berechne Motorstrom (I) aus Drehmoment und Motorkonstante")
         return self.torque / self.KM_MOTOR
+
+
+    # --- ERWEITERUNG LUFTDICHTE ---
+
+    def get_air_density(self) -> np.ndarray:
+        """Berechnet die Luftdichte rho"""
+        logging.info("Berechne Luftdichte aus realen GPS-Temperaturdaten.")
+        
+        p_0 = 101325.0      # Standard-Luftdruck auf Meereshöhe in Pa
+        R_s = 287.058       # Spezifische Gaskonstante für trockene Luft in J/(kg*K)
+        
+        hoehen = self.data_array['ele']
+        T_measured_c = self.data_array['temperature']
+        
+        # Absicherung der Sensordaten
+        assert np.all(T_measured_c > -50.0) & np.all(T_measured_c < 60.0), "GPS-Temperaturwerte enthalten Extremwerte!"
+        
+        # Umrechnung in Kelvin
+        T_local = T_measured_c + 273.15  
+        
+        # Luftdruck auf der jeweiligen Höhe bestimmen (Standard-Atmosphärenmodell für den Druck)
+        p_local = p_0 * (1.0 - 2.25577e-5 * hoehen) ** 5.25588
+        
+        # rho = p / (R * T)
+        rho = p_local / (R_s * T_local)
+        
+        # Absicherungen des Dichte-Arrays
+        assert len(rho) == len(hoehen), "Dimensionen von Luftdichte und Höhenprofil stimmen nicht überein."
+        assert np.all(np.isfinite(rho)), "Die berechnete Luftdichte enthält ungültige Werte (NaN/Inf)."
+        assert np.all((rho > 0.5) & (rho < 1.5)), "Berechnete Dichtewerte liegen außerhalb plausibler Grenzen!"
+        
+        logging.debug("Luftdichte erfolgreich berechnet. Min: %.3f kg/m³, Max: %.3f kg/m³", np.min(rho), np.max(rho))
+        return rho
 
     # --- DER MANAGER ---
 
