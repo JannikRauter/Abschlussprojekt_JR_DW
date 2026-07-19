@@ -5,6 +5,17 @@ from src.battery_nmc import NMCBattery
 import numpy as np
 import matplotlib.pyplot as plt
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    filename='logging.log',  
+    filemode='a',               
+    format='%(asctime)s - %(name)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+logger.info("main gestartet. Initialisiere Datenanalyse und Batterie-Simulation...")
 
 analyzer = DataAnalysis("final_project_input_data.csv")
 
@@ -15,6 +26,7 @@ cumulative_distance = np.cumsum(analyzer.distances) / 1000
 fig, ax = plt.subplots(figsize=(10, 5))
 
 # Höhenprofil zeichnen
+logging.info("Erzeuge Diagramm 1: Höhenprofil")
 ax.plot(cumulative_distance, analyzer.data_array['ele'], label='Höhenprofil', color='#1f77b4', linewidth=1.5)
 
 ax.set_xlabel('Distanz / km')
@@ -26,14 +38,15 @@ plt.xticks(np.arange(0, 100, 5))
 plt.yticks(np.arange(500, 900, 50))
 
 
-# 1. Zeit-Achse in Minuten umrechnen (für eine bessere Lesbarkeit im Plot)
+# Zeit-Achse in Minuten umrechnen (für eine bessere Lesbarkeit im Plot)
 time_minutes = np.cumsum(analyzer.get_dt()) / 60
 
 # 2. Zwei Diagramme untereinander erstellen (2 Zeilen, 1 Spalte)
+logging.info("Erzeuge Diagramm 2: Geschwindigkeit und Motorleistung über die Zeit")
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 ax2.set_xticks(np.arange(0, 301, 20))
 
-# --- Diagramm 1: Geschwindigkeit über die Zeit ---
+# Geschwindigkeit über die Zeit
 # (Die gefilterten Geschwindigkeiten aus deiner Analyse, umgerechnet in km/h (* 3.6))
 speeds_kmh = analyzer.speeds * 3.6
 ax1.plot(time_minutes, speeds_kmh, label='Geschwindigkeit', color='forestgreen', linewidth=1.5)
@@ -43,7 +56,7 @@ ax1.grid(True, linestyle='--', alpha=0.6)
 ax1.legend()
 ax1.set_yticks(np.arange(0, 61, 5))
 
-# --- Diagramm 2: Berechnete Motorleistung über die Zeit ---
+#  Motorleistung über die Zeit
 # Drehmoment holen
 torque = analyzer.get_torque()
 
@@ -64,11 +77,6 @@ ax2.set_yticks(np.arange(0, 2001, 250))
 plt.tight_layout()
 
 
-
-
-# ==========================================
-# --- NEU: BATTERIE-SIMULATION ---
-# ==========================================
 
 # 1. Benötigte Ladung aus den analysierten Daten ermitteln
 dt_s = analyzer.dt             # Zeitdifferenzen in Sekunden
@@ -101,9 +109,7 @@ for i in range(len(dt_s)):
     nmc.apply_current(current=strom_a[i], duration=dt_s[i])
 
 
-# ==========================================
-# --- NEU: DIAGRAMM 3: Batterieladung ---
-# ==========================================
+
 fig3, (ax3_lipo, ax3_nmc) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 ax3_nmc.set_xticks(np.arange(0, 301, 20))
 
@@ -122,6 +128,7 @@ ax3_nmc.set_ylabel('NMC SoC / %')
 ax3_nmc.set_ylim(-5, 105)
 ax3_nmc.grid(True, linestyle='--', alpha=0.6)
 ax3_nmc.legend(loc='upper right')
+logging.info("Erzeuge Diagramm 3: Ladezustand (SoC) der Batterien über die Zeit")
 
 plt.tight_layout()
 
@@ -132,7 +139,7 @@ plt.tight_layout()
 plt.show()
 
 
-# --- WEITERE KENNGRÖSSEN BERECHNEN ---
+#  WEITERE KENNGRÖSSEN BERECHNEN
 
 # 1. Maximalleistung (höchster Wert aus deinem berechneten power_watt Array)
 max_power = np.max(power_watt)
@@ -154,7 +161,7 @@ print("="*40)
 v_avg = np.mean(analyzer.speeds) * 3.6  # m/s in km/h umrechnen
 total_dist = np.sum(analyzer.get_distances()) / 1000  # Meter in km
 total_time = np.sum(analyzer.get_dt()) / 60  # Sekunden in Minuten
-
+logging.info("Berechnete Kennzahlen und Ausgabe: Durchschnittsgeschwindigkeit, Gesamtdistanz, Gesamtzeit, Maximalleistung, Höhenmeter Anstieg/Abstieg, berechneter Verbrauch")
 # Saubere, untereinander ausgerichtete Ausgabe
 print(f"{'Zurückgelegte Strecke:':<29} {total_dist:.2f} km")
 print(f"{'Benötigte Zeit:':<29} {total_time:.1f} min")
