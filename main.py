@@ -54,7 +54,10 @@ ax1.set_ylabel('v / (km/h)')
 ax1.set_title('Geschwindigkeitsverlauf über die Zeit')
 ax1.grid(True, linestyle='--', alpha=0.6)
 ax1.legend()
-ax1.set_yticks(np.arange(0, 61, 5))
+# FIX: Dynamische Achse für die reale Höchstgeschwindigkeit
+max_speed = np.max(speeds_kmh)
+ax1.set_ylim(0, max_speed * 1.1)
+ax1.set_yticks(np.arange(0, max_speed * 1.1, 5 if max_speed < 40 else 10))
 
 #  Motorleistung über die Zeit
 # Drehmoment holen
@@ -71,7 +74,10 @@ ax2.set_ylabel('P / W')
 ax2.set_title('Benötigte Motorleistung über die Zeit')
 ax2.grid(True, linestyle='--', alpha=0.6)
 ax2.legend()
-ax2.set_yticks(np.arange(0, 2001, 250))
+# FIX: Dynamische Achse für die reale Höchstleistung
+max_power = np.max(power_watt)
+ax2.set_ylim(0, max_power * 1.1)
+ax2.set_yticks(np.arange(0, max_power * 1.1, 250 if max_power < 2000 else 500))
 
 # Layout anpassen, damit sich die Achsenbeschriftungen nicht überschneiden
 plt.tight_layout()

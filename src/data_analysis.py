@@ -157,7 +157,7 @@ class DataAnalysis(AbstractDataAnalysis):
     # --- DER MANAGER ---
 
     def run_analysis(self):
-        """Führt die gesamte Berechnung aus und speichert die Ergebnisse als Attribute."""
+        """Führt die gesamte Berechnung in physikalisch korrekter Reihenfolge aus."""
         logging.info("Starte die vollständige Fahrtdatenanalyse")
         # 1. Daten über NumPy einlesen
         self.load_data()
@@ -167,19 +167,21 @@ class DataAnalysis(AbstractDataAnalysis):
         self.dt = self.get_dt()
         self.distances = self.get_distances()
         
-        # Rohwerte berechnen
+        # Rohwerte ermitteln
         raw_speeds = self.get_speeds()
-        raw_accelerations = self.get_accelerations(raw_speeds)
         raw_slopes = self.get_slopes()
         logging.debug("Rohwerte berechnet")
 
-        # Glätten mit der importierten Funktion
-        self.speeds = moving_average(raw_speeds, window_size=15)
+        # glätten
+        self.speeds = moving_average(raw_speeds, window_size=45)
+        self.slopes = moving_average(raw_slopes, window_size=45)
+        
+        raw_accelerations = self.get_accelerations(self.speeds)
         self.accelerations = moving_average(raw_accelerations, window_size=15)
-        self.slopes = moving_average(raw_slopes, window_size=15)
-        logging.info("Kinematik berechnet und geglättet: Geschwindigkeiten, Beschleunigungen, Steigungen")
+        
+        logging.info("Kinematik physikalisch konsistent berechnet und geglättet.")
 
-        # 3. Kräfte berechnen
+        # 3. Kräfte berechnen (basierend auf den sauberen Signalen)
         self.F_gravity = self.get_force_gravity()
         self.F_drag = self.get_force_drag()
         self.F_acceleration = self.get_force_acceleration()
