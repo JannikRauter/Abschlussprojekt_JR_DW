@@ -134,11 +134,6 @@ plt.tight_layout()
 
 
 
-
-# Diagramme anzeigen
-plt.show()
-
-
 #  WEITERE KENNGRÖSSEN BERECHNEN
 
 # 1. Maximalleistung (höchster Wert aus deinem berechneten power_watt Array)
@@ -174,3 +169,65 @@ print("-" * 40)
 print(f"{'Berechneter Verbrauch:':<29} {gesamt_ladung_ah:.2f} Ah")
 print(f"{'Ausgelegte Kapazität (10% SoC):':<29} {KAPAZITAET_AH:.2f} Ah")
 print("="*40 + "\n")
+
+
+# Erweiterung: Interaktive Karte mit Folium und Reverse Geocoding
+
+lats = analyzer.data_array['lat']
+lons = analyzer.data_array['lon']
+eles = analyzer.data_array['ele']
+
+
+# HTML KARTE MIT FOLIUM ERZEUGEN falls folium installiert ist
+try:
+    import folium
+    import branca.colormap as cm
+    
+    logging.info("Erzeuge interaktive Karte mit farbigem Höhenprofil...")
+    
+    # Karte auf den Mittelpunkt der Fahrt zentrieren
+    map_center = [np.mean(lats), np.mean(lons)]
+    m = folium.Map(location=map_center, zoom_start=13, tiles='OpenStreetMap')
+    
+    # Kontinuierliche Farbskala (Colormap) basierend auf Höhenwerten erzeugen
+    cmap = cm.linear.viridis.scale(int(np.min(eles)), int(np.max(eles)))
+    cmap.caption = 'Höhe über dem Meeresspiegel / m'
+    
+    # Koordinaten als Paare vorbereiten
+    coordinates = list(zip(lats, lons))
+    
+    # Die Fahrtstrecke als farbcodierte Linie (ColorLine) zeichnen
+    folium.ColorLine(
+        positions=coordinates,
+        colors=eles,          # Höhenmeter steuern die Farbe
+        colormap=cmap,        # Die Farbskala
+        weight=5,
+        opacity=0.9
+    ).add_to(m)
+    
+    # 4. Die schwebende Höhen-Legende zur HTML-Karte hinzufügen
+    cmap.add_to(m)
+    
+    # 5. Start & Ziel Marker setzen
+    folium.Marker(
+        location=coordinates[0], 
+        popup="<b>Startpunkt</b>", 
+        icon=folium.Icon(color='green', icon='play')
+    ).add_to(m)
+    
+    folium.Marker(
+        location=coordinates[-1], 
+        popup="<b>Zielpunkt</b>", 
+        icon=folium.Icon(color='red', icon='stop')
+    ).add_to(m)
+    
+    # HTML-Datei speichern
+    karten_pfad = 'strecke_interaktiv.html'
+    m.save(karten_pfad)
+    print(f"-> Interaktive HTML-Karte unter '{karten_pfad}' gespeichert!")
+
+except Exception as e:
+    logging.warning("Folium-Karte mit Höhenskala konnte nicht erstellt werden: %s", e)
+
+# Alle Diagramme ausgeben
+plt.show()

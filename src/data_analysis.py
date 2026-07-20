@@ -167,7 +167,6 @@ class DataAnalysis(AbstractDataAnalysis):
         self.dt = self.get_dt()
         self.distances = self.get_distances()
         
-        
         # Rohwerte berechnen
         raw_speeds = self.get_speeds()
         raw_accelerations = self.get_accelerations(raw_speeds)
@@ -226,3 +225,6 @@ if __name__ == "__main__":
     print(f"{'Gesamtkraft (F_total):':<25} {analyzer.forces_total[:5]}")
     print(f"{'Drehmoment (T in Nm):':<25} {analyzer.torque[:5]}")
     print(f"{'Motorstrom (I in A):':<25} {analyzer.I_motor[:5]}")
+
+
+    
