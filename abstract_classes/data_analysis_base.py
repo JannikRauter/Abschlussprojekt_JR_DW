@@ -16,6 +16,7 @@ class AbstractDataAnalysis(ABC):
         self.WHEEL_RADIUS_M = (self.WHEEL_DIAMETER_INCH * 0.0254) / 2.0
         self.RHO_AIR = 1.225         # kg/m^3
         self.KM_MOTOR = 1.5          # Nm/A
+        self.C_R = 0.007              # Rollwiderstandsbeiwert
 
     @abstractmethod
     def load_data(self) -> pd.DataFrame:

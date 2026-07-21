@@ -105,6 +105,19 @@ class DataAnalysis(AbstractDataAnalysis):
         """F_acceleration = m * a"""
         logging.debug("Berechne Beschleunigungskraft (F_acceleration) aus Gesamtmasse und Beschleunigungen")
         return self.TOTAL_MASS * self.accelerations
+    
+    # --- Erweiterung: Rollwiderstandskraft ---
+    def get_force_roll(self):
+        """Berechnet die Rollwiderstandskraft: F_roll = c_r * m * g * cos(alpha)"""
+        # Steigungswinkel alpha in Radian aus der Steigung (Slope) ermitteln
+        slope_angles = np.arctan(self.slopes)
+        
+        # Rollkraft berechnen
+        f_roll = self.C_R * self.TOTAL_MASS * 9.81 * np.cos(slope_angles)
+        
+        # Wo das Fahrzeug steht (v == 0), wirkt auch kein Rollwiderstand
+        f_roll[self.speeds == 0] = 0.0
+        return f_roll
 
     # --- ELEKTROTECHNIK ---
 
@@ -181,15 +194,18 @@ class DataAnalysis(AbstractDataAnalysis):
         
         logging.info("Kinematik physikalisch konsistent berechnet und geglättet.")
 
-        # 3. Kräfte berechnen (basierend auf den sauberen Signalen)
-        self.F_gravity = self.get_force_gravity()
-        self.F_drag = self.get_force_drag()
-        self.F_acceleration = self.get_force_acceleration()
-        logging.info("Kräfte berechnet: Hangabtrieb, Luftwiderstand, Beschleunigung")
-        
-        # Gesamtkraft berechnen
-        self.forces_total = self.F_gravity + self.F_drag + self.F_acceleration
-        logging.info("Gesamtkraft berechnet")
+        raw_F_gravity = self.get_force_gravity()
+        raw_F_drag = self.get_force_drag()
+        raw_F_acceleration = self.get_force_acceleration()
+        raw_F_roll = self.get_force_roll()
+
+        raw_forces_total = raw_F_gravity + raw_F_drag + raw_F_acceleration + raw_F_roll
+
+        self.F_gravity = moving_average(raw_F_gravity, window_size=15)
+        self.F_drag = moving_average(raw_F_drag, window_size=15)
+        self.F_acceleration = moving_average(raw_F_acceleration, window_size=15)
+        self.F_roll = moving_average(raw_F_roll, window_size=15)
+        self.forces_total = moving_average(raw_forces_total, window_size=15)
 
         # 4. Elektrotechnik berechnen
         self.torque = self.get_torque()
@@ -224,6 +240,8 @@ if __name__ == "__main__":
     print("\n--- PHYSTK & MOTOR (Erste 5 Zeitschritte) ---")
     print(f"{'Hangabtrieb (F_grav):':<25} {analyzer.F_gravity[:5]}")
     print(f"{'Luftwiderstand (F_drag):':<25} {analyzer.F_drag[:5]}")
+    print(f"{'Beschleunigung (F_acc):':<25} {analyzer.F_acceleration[:5]}")
+    print(f"{'Rollwiderstand (F_roll):':<25} {analyzer.F_roll[:5]}")
     print(f"{'Gesamtkraft (F_total):':<25} {analyzer.forces_total[:5]}")
     print(f"{'Drehmoment (T in Nm):':<25} {analyzer.torque[:5]}")
     print(f"{'Motorstrom (I in A):':<25} {analyzer.I_motor[:5]}")
