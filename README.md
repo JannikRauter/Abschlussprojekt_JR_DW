@@ -599,7 +599,7 @@ Erwartetes Ergebnis:
 
 ### 4. Indirekte Parameterstudien
 
-Mehrere wichtige Simulationsparameter sind im Code zentral als Variablen beziehungsweise Konstanten definiert und können verändert werden.
+Mehrere wichtige Simulationsparameter sind zentral in `src/data_analysis.py` als Variablen bzw. Konstanten definiert und können dort direkt für verschiedene Szenarien angepasst werden.
 
 Beispiele:
 
