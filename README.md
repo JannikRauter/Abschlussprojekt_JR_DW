@@ -42,8 +42,7 @@ Abschlussprojekt_JR_DW/
 ├── abstract_classes/
 │   ├── __init__.py
 │   ├── battery_base.py
-│   ├── data_analysis_base.py
-│   └── simulation_base.py
+│   └── data_analysis_base.py
 │
 ├── src/
 │   ├── __init__.py
@@ -51,8 +50,7 @@ Abschlussprojekt_JR_DW/
 │   ├── battery_nmc.py
 │   ├── battery_pack.py
 │   ├── data_analysis.py
-│   ├── signal_processing.py
-│   └── simulation.py
+│   └── signal_processing.py
 │
 ├── tests/
 │   ├── __init__.py
@@ -161,20 +159,11 @@ Die Datei darf nicht umbenannt oder verschoben werden, außer der Pfad wird im C
 
 Das Projekt muss aus dem Hauptverzeichnis gestartet werden.
 
-Richtig:
 
 ```bash
 python main.py
 ```
 
-Nicht aus dem Ordner `src` starten.
-
-Falsch:
-
-```bash
-cd src
-python simulation.py
-```
 
 Beim Ausführen werden die GPS-Daten eingelesen, verarbeitet und ausgewertet. Anschließend werden mehrere Diagramme erstellt und eine Zusammenfassung der Fahrt im Terminal ausgegeben.
 
@@ -291,7 +280,6 @@ Dieser Ordner enthält abstrakte Basisklassen beziehungsweise Schnittstellen.
 ```text
 battery_base.py
 data_analysis_base.py
-simulation_base.py
 ```
 
 Diese Dateien definieren die grundlegende Struktur für die späteren Implementierungen.
@@ -306,7 +294,6 @@ battery_lipo.py
 battery_nmc.py
 data_analysis.py
 signal_processing.py
-simulation.py
 ```
 
 Die zentrale Datenanalyse und Fahrphysik befindet sich in:
@@ -369,6 +356,71 @@ Aus den Daten werden berechnet:
 - Drehmoment
 - Motorstrom
 
+## Programmablauf (Aktivitätsdiagramm)
+
+Das folgende Diagramm visualisiert den gesamten Ablauf der Anwendung von der Datenanalyse über die Signalverarbeitung bis hin zur Batteriesimulation und Kartenerstellung:
+
+```mermaid
+flowchart TD
+    Start([● Start]) --> Init[DataAnalysis Instanziierung]
+    Init --> RunAnalysis[analyzer.run_analysis]
+
+    subgraph DataPrep ["Signalverarbeitung & Physik (data_analysis)"]
+        direction TB
+        LoadData["load_data(): CSV laden & Header prüfen"]
+        GetDtDist["get_dt() & get_distances() (Haversine)"]
+        GetSpeedSlope["get_speeds() & get_slopes()<br/>+ Moving Average (win=45)"]
+        GetAcc["get_accelerations()<br/>+ Moving Average (win=15)"]
+        GetAirDensity["get_air_density() aus GPS-Temperatur & Höhe"]
+        GetForces["Kräfte berechnen (F_gravity, F_drag, F_acc, F_roll)<br/>+ Moving Average (win=15)"]
+        GetTorqueCurrent["get_torque() (≥ 0 Nm) & get_motor_current()"]
+
+        LoadData --> GetDtDist --> GetSpeedSlope --> GetAcc --> GetAirDensity --> GetForces --> GetTorqueCurrent
+    end
+
+    RunAnalysis --> DataPrep
+    DataPrep --> Plot1["Plot 1: Höhenprofil erstellen"]
+    Plot1 --> Plot2["Plot 2: Geschwindigkeits- & Motorleistungsprofil erstellen"]
+    
+    Plot2 --> BatteryDim["Gesamtladung Q & Kapazität berechnen<br/>(Auslegung auf 10% Rest-SoC)"]
+    BatteryDim --> BatteryInit["LiPoBattery & NMCBattery instanziieren<br/>(initial_soc = 1.0)"]
+    
+    BatteryInit --> LoopStart["Simulationsschleife: for i in range(len(dt_s))"]
+
+    subgraph ApplyCurrent ["apply_current(current, duration)"]
+        direction TB
+        CalcDeltaSoC["delta_soc = current * duration / C_nom<br/>new_soc = soc - delta_soc"]
+        SocCheck{"SoC Grenzprüfung"}
+        CapMax["new_soc > 1.0:<br/>Warnung loggen & new_soc = 1.0"]
+        CapMin["new_soc < 0.0:<br/>Warnung loggen & new_soc = 0.0"]
+        SocValid["0.0 ≤ new_soc ≤ 1.0:<br/>Unverändert übernehmen"]
+        UpdateSoc["soc = new_soc"]
+
+        CalcDeltaSoC --> SocCheck
+        SocCheck -- "new_soc > 1.0" --> CapMax --> UpdateSoc
+        SocCheck -- "new_soc < 0.0" --> CapMin --> UpdateSoc
+        SocCheck -- "gültig" --> SocValid --> UpdateSoc
+    end
+
+    LoopStart --> ApplyCurrent
+    ApplyCurrent --> LoopEnd{"Weitere Zeitschritte vorhanden?"}
+    LoopEnd -- "Ja" --> LoopStart
+    LoopEnd -- "Nein" --> Plot3["Plot 3: SoC-Verlauf (LiPo vs. NMC)"]
+
+    Plot3 --> Stats["Fahrtkenngrößen berechnen & Terminal-Ausgabe"]
+    Stats --> FoliumCheck{"Folium verfügbar & fehlerfrei?"}
+
+    FoliumCheck -- "Ja" --> MapCreate["Karte mit Farblinie nach Höhe erstellen"]
+    MapCreate --> Markers["Start- & Ziel-Marker setzen"]
+    Markers --> SaveMap["'strecke_interaktiv.html' speichern"]
+
+    FoliumCheck -- "Nein / Fehler" --> SkipMap["Fehler loggen & Karte überspringen"]
+
+    SaveMap --> ShowPlots["plt.show()"]
+    SkipMap --> ShowPlots
+    ShowPlots --> End([● Ende])
+```
+  
 ## Signalverarbeitung
 
 Zur Glättung verrauschter GPS- und Bewegungsdaten wird ein gleitender Mittelwert verwendet.
